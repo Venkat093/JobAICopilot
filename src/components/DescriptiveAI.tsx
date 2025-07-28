@@ -24,11 +24,41 @@ const DescriptiveAI: React.FC = () => {
   } = useSpeechRecognition();
 
   useEffect(() => {
-    if (!listening && transcript) {
-      handleSpeechInput(transcript);
-      resetTranscript();
-    }
+    const processInput = async () => {
+      if (!listening && transcript) {
+        await handleSpeechInput(transcript); // Await here
+        resetTranscript();
+      }
+    };
+    processInput();
   }, [listening, transcript]);
+
+
+  // const handleSpeechInput = async (input: string) => {
+  //   if (!input.trim()) return;
+
+  //   const userMessage: Message = {
+  //     id: Date.now().toString(),
+  //     role: 'user',
+  //     content: input,
+  //     timestamp: new Date()
+  //   };
+
+  //   setMessages(prev => [...prev, userMessage]);
+  //   setIsProcessing(true);
+
+  //   // Simulate AI response
+  //   setTimeout(() => {
+  //     const aiResponse: Message = {
+  //       id: (Date.now() + 1).toString(),
+  //       role: 'assistant',
+  //       content: `I understand you're asking about: "${input}". This is a comprehensive response that would typically come from an AI system designed to help with interview preparation. The system would analyze your question and provide detailed, contextual answers to help you prepare for technical interviews, behavioral questions, and general interview strategies.`,
+  //       timestamp: new Date()
+  //     };
+  //     setMessages(prev => [...prev, aiResponse]);
+  //     setIsProcessing(false);
+  //   }, 1500);
+  // };
 
   const handleSpeechInput = async (input: string) => {
     if (!input.trim()) return;
@@ -43,17 +73,60 @@ const DescriptiveAI: React.FC = () => {
     setMessages(prev => [...prev, userMessage]);
     setIsProcessing(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: `I understand you're asking about: "${input}". This is a comprehensive response that would typically come from an AI system designed to help with interview preparation. The system would analyze your question and provide detailed, contextual answers to help you prepare for technical interviews, behavioral questions, and general interview strategies.`,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, aiResponse]);
+    const assistantMessageId = (Date.now() + 1).toString();
+    let assistantMessage: Message = {
+      id: assistantMessageId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, assistantMessage]);
+
+    try {
+      const response = await fetch('http://localhost:5000/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: input }),
+      });
+
+      if (!response.body) throw new Error('No response body');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let result = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        result += chunk;
+
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.id === assistantMessageId
+              ? { ...msg, content: result }
+              : msg
+          )
+        );
+        setIsProcessing(false);
+      }
+    } catch (error) {
+      console.error('Streaming error:', error);
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === assistantMessageId
+            ? { ...msg, content: 'An error occurred while generating a response.' }
+            : msg
+        )
+      );
+    } finally {
+      console.log("fver");
       setIsProcessing(false);
-    }, 1500);
+    }
   };
 
   const startListening = () => {
@@ -101,13 +174,16 @@ const DescriptiveAI: React.FC = () => {
                     className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[80%] rounded-lg p-3 ${
-                        message.role === 'user'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
+                      className={`max-w-[80%] rounded-lg p-3 ${message.role === 'user'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground'
+                        }`}
                     >
-                      <p className="text-sm leading-relaxed">{message.content}</p>
+                      {message.content.split(/(?:^|\n)(?=\d+\.\s)/).map((line, index) => (
+                        <p key={index} className="text-sm mb-2">{line.trim()}</p>
+                      ))}
+
+
                       <p className="text-xs opacity-70 mt-1">
                         {message.timestamp.toLocaleTimeString()}
                       </p>
