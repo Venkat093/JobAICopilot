@@ -1,0 +1,57 @@
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { User, Mail, Phone, MapPin, Calendar } from 'lucide-react';
+
+const Profile: React.FC = () => {
+  return (
+    <div className="w-full">
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-4">
+          <div className="flex items-center space-x-4">
+            {/* <Avatar className="h-16 w-16">
+              <AvatarImage src="https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&dpr=1" />
+              <AvatarFallback className="bg-primary text-primary-foreground">
+                <User className="h-8 w-8" />
+              </AvatarFallback>
+            </Avatar> */}
+            <div>
+              <CardTitle className="text-xl">John Doe</CardTitle>
+              <p className="text-sm text-muted-foreground">Software Engineer</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center space-x-2 text-sm">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <span>January 1, 1990</span>
+          </div>
+          <div className="flex items-center space-x-2 text-sm">
+            <MapPin className="h-4 w-4 text-muted-foreground" />
+            <span>New York, USA</span>
+          </div>
+          <div className="flex items-center space-x-2 text-sm">
+            <Mail className="h-4 w-4 text-muted-foreground" />
+            <span>john.doe@example.com</span>
+          </div>
+          <div className="flex items-center space-x-2 text-sm">
+            <Phone className="h-4 w-4 text-muted-foreground" />
+            <span>+1 234 567 8900</span>
+          </div>
+          <div className="pt-4">
+            <h4 className="text-sm font-medium mb-2">Skills</h4>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary">React</Badge>
+              <Badge variant="secondary">TypeScript</Badge>
+              <Badge variant="secondary">Node.js</Badge>
+              <Badge variant="secondary">Python</Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default Profile;
