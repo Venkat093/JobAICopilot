@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import InterviewCopilot from './components/InterviewCopilot';
+
+import LiveTranscriber from './components/Test';
 import './App.css';
 
 function App() {
@@ -8,7 +10,10 @@ function App() {
     document.documentElement.classList.add('dark');
   }, []);
 
-  return <InterviewCopilot />;
+  // return <InterviewCopilot />;
+  return <div>
+    <LiveTranscriber/>
+  </div>
 }
 
 export default App;

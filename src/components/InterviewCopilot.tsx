@@ -15,11 +15,11 @@ const InterviewCopilot: React.FC = () => {
       {/* Main Grid Layout */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-[30%_70%] gap-4 p-4">
         {/* Left Column */}
-        <div className="grid grid-rows-1 lg:grid-rows-[40%_60%] gap-4 lg:border-r lg:border-border lg:pr-4">
-          <div className="min-h-[400px]">
+        <div className="grid grid-rows-1 lg:grid-rows-[30%_70%] gap-4 lg:border-r lg:border-border lg:pr-4">
+          <div className="min-h-[100px]">
             <Profile />
           </div>
-          <div className="min-h-[500px]">
+          <div className="max-h-[400px] h-full min-w-[200px] flex flex-col">
             <Resume />
           </div>
         </div>

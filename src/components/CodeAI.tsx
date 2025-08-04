@@ -40,7 +40,7 @@ const CodeAI: React.FC = () => {
       ]);
 
       try {
-        const response = await fetch('http://localhost:5000/api/generate_image_to_text', {
+        const response = await fetch('http://localhost:3000/api/generate_image_to_text', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

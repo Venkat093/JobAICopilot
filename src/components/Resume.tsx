@@ -4,62 +4,77 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Upload, FileText } from 'lucide-react';
 
+
+
 const Resume: React.FC = () => {
-  const [fileName, setFileName] = useState<string>('');
-  const [fileContent, setFileContent] = useState<string>('');
-  const [description] = useState<string>(
-    `Professional Summary:
-    
-Experienced Software Engineer with 5+ years of expertise in full-stack development, specializing in React, Node.js, and cloud technologies. Proven track record of delivering scalable web applications and leading cross-functional teams.
+  const [fileName, setFileName] = useState('');
+  const [summary, setSummary] = useState('');
+  const [loading, setLoading] = useState(false);
 
-Key Achievements:
-• Led development of a customer portal that increased user engagement by 40%
-• Implemented microservices architecture reducing system downtime by 60%
-• Mentored 5 junior developers and established coding best practices
-• Optimized database queries resulting in 50% faster page load times
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
 
-Technical Expertise:
-• Frontend: React, TypeScript, Next.js, Tailwind CSS
-• Backend: Node.js, Python, Express.js, FastAPI
-• Databases: PostgreSQL, MongoDB, Redis
-• Cloud: AWS, Docker, Kubernetes
-• Tools: Git, Jenkins, Jira, Figma
+  setFileName(file.name);
+  setSummary('');
+  setLoading(true);
 
-Experience:
-Senior Software Engineer | TechCorp Inc. | 2021 - Present
-• Architected and developed enterprise-level web applications
-• Collaborated with product managers to define technical requirements
-• Implemented CI/CD pipelines improving deployment efficiency by 70%
+  const formData = new FormData();
+  formData.append('resume', file);
 
-Software Engineer | StartupXYZ | 2019 - 2021
-• Built responsive web applications using React and Node.js
-• Integrated third-party APIs and payment gateways
-• Participated in agile development processes and code reviews
+  try {
+    const response = await fetch('http://localhost:3000/api/generate_file_summary', {
+      method: 'POST',
+      body: formData,
+    });
 
-Education:
-Bachelor of Science in Computer Science
-University of Technology | 2015 - 2019
-
-Certifications:
-• AWS Certified Solutions Architect
-• Google Cloud Professional Developer
-• Certified Scrum Master (CSM)`
-  );
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setFileName(file.name);
-      
-      // Read file content for display
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const content = e.target?.result as string;
-        setFileContent(`File uploaded: ${file.name}\n\nContent preview:\n${content.substring(0, 500)}...`);
-      };
-      reader.readAsText(file);
+    if (!response.ok || !response.body) {
+      throw new Error('Failed to get response stream');
     }
-  };
+
+    const streamReader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let accumulated = '';
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await streamReader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      buffer += chunk;
+
+      const lines = buffer.split('\n');
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+
+        // Only handle lines starting with "data:"
+        if (!line.startsWith('data:')) continue;
+
+        const data = line.replace(/^data:\s*/, '').trim();
+
+        if (data === '[DONE]') {
+          setLoading(false);
+          return;
+        }
+
+        accumulated += data;
+        setSummary(accumulated);
+      }
+
+      // Keep partial data only if the last line wasn't complete
+      buffer = buffer.endsWith('\n') ? '' : lines[lines.length - 1];
+    }
+  } catch (error: any) {
+    console.error('Streaming error:', error);
+    setSummary('❌ Error processing file: ' + error.message);
+  } finally {
+    setLoading(false);
+  }
+};
+
+
 
   return (
     <div className="w-full">
@@ -75,7 +90,7 @@ Certifications:
               Upload
               <input
                 type="file"
-                accept=".pdf,.docx,.doc"
+                accept=".pdf,.docx,.doc,.txt"
                 onChange={handleFileChange}
                 className="absolute inset-0 opacity-0 cursor-pointer"
               />
@@ -87,17 +102,21 @@ Certifications:
             </p>
           )}
         </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-96 pr-4">
-            <div className="space-y-4 text-sm leading-relaxed">
-              {(fileContent || description).split('\n').map((line, index) => (
-                <p key={index} className={line.trim() === '' ? 'h-2' : ''}>
-                  {line}
-                </p>
-              ))}
-            </div>
-          </ScrollArea>
-        </CardContent>
+      <div className="min-h-[500px] h-full flex flex-col">
+  <Card className="bg-card border-border overflow-hidden w-full h-full flex flex-col">
+    <CardHeader className="pb-4 flex-shrink-0">{/* ... */}</CardHeader>
+    <CardContent className="flex-1 flex flex-col overflow-hidden p-0">
+      <ScrollArea className="h-full max-h-full pr-4">
+        {loading
+          ? <p className="p-4">Processing resume...</p>
+          : <p className="p-4 break-words whitespace-pre-line">{summary || "Upload a resume file to see summary here."}</p>
+        }
+      </ScrollArea>
+    </CardContent>
+  </Card>
+</div>
+
+
       </Card>
     </div>
   );

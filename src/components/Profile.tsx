@@ -22,7 +22,7 @@ const Profile: React.FC = () => {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space">
           <div className="flex items-center space-x-2 text-sm">
             <Calendar className="h-4 w-4 text-muted-foreground" />
             <span>January 1, 1990</span>
