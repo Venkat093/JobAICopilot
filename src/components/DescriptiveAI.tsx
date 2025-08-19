@@ -1,80 +1,210 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Mic, MicOff, MessageSquare } from 'lucide-react';
-import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
+import React, { useEffect, useRef, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Mic, MicOff, MessageSquare } from "lucide-react";
 
+// ---------- Chat Message Interface ----------
 interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
   timestamp: Date;
 }
 
+// ---------- Utility ----------
+function pickMime() {
+  const candidates = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/ogg;codecs=opus",
+    "audio/ogg",
+  ];
+  for (const m of candidates) {
+    try {
+      if (MediaRecorder.isTypeSupported(m)) return m;
+    } catch (err) {
+      console.error("[pickMime] Error checking mime type:", err);
+    }
+  }
+  return "";
+}
+
+// ---------- Component ----------
 const DescriptiveAI: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
 
-  const {
-    transcript,
-    listening,
-    resetTranscript,
-    browserSupportsSpeechRecognition
-  } = useSpeechRecognition();
+  // ✅ Hardcoded prompt (instead of showing input)
+  const PROMPT = "Answer this Java question";
 
-  useEffect(() => {
-    if (!listening && transcript) {
-      handleSpeechInput(transcript);
-      resetTranscript();
-    }
-  }, [listening, transcript]);
+  // Streams / recorder refs
+  const displayStreamRef = useRef<MediaStream | null>(null);
+  const audioOnlyStreamRef = useRef<MediaStream | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const chosenMimeRef = useRef("");
 
-  const handleSpeechInput = async (input: string) => {
-    if (!input.trim()) return;
+  // Append message helper
+  const appendMessage = (role: "user" | "assistant", content: string) => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        role,
+        content,
+        timestamp: new Date(),
+      },
+    ]);
+  };
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input,
-      timestamp: new Date()
-    };
+  // ---------- Start Capture ----------
+  const startCapture = async () => {
+    try {
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true,
+        selfBrowserSurface: "exclude",
+        systemAudio: "exclude",
+      });
 
-    setMessages(prev => [...prev, userMessage]);
-    setIsProcessing(true);
+      const audioTracks = displayStream.getAudioTracks();
+      if (!audioTracks.length)
+        throw new Error(
+          "No audio track. Make sure 'Share tab audio' is checked."
+        );
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: `I understand you're asking about: "${input}". This is a comprehensive response that would typically come from an AI system designed to help with interview preparation. The system would analyze your question and provide detailed, contextual answers to help you prepare for technical interviews, behavioral questions, and general interview strategies.`,
-        timestamp: new Date()
+      const audioOnlyStream = new MediaStream(audioTracks);
+      displayStream.getVideoTracks().forEach((t) => t.stop());
+
+      displayStreamRef.current = displayStream;
+      audioOnlyStreamRef.current = audioOnlyStream;
+
+      const mime = pickMime() || "audio/webm;codecs=opus";
+      chosenMimeRef.current = mime;
+      const opts = mime
+        ? { mimeType: mime, audioBitsPerSecond: 128000 }
+        : undefined;
+
+      const mr = new MediaRecorder(audioOnlyStream, opts);
+      recorderRef.current = mr;
+      chunksRef.current = [];
+
+      mr.ondataavailable = (e) => {
+        if (e.data && e.data.size) chunksRef.current.push(e.data);
       };
-      setMessages(prev => [...prev, aiResponse]);
-      setIsProcessing(false);
-    }, 1500);
-  };
 
-  const startListening = () => {
-    if (browserSupportsSpeechRecognition) {
-      SpeechRecognition.startListening({ continuous: false, language: 'en-US' });
+      mr.onstop = async () => {
+        const blob = new Blob(chunksRef.current, {
+          type: mime || "audio/webm",
+        });
+        chunksRef.current = [];
+        if (blob.size) {
+          await sendOnce(blob, PROMPT); // ✅ always use hardcoded prompt
+        } else {
+          appendMessage("assistant", "[WARN] Empty recording; nothing to send");
+        }
+      };
+
+      mr.start();
+      setIsCapturing(true);
+      appendMessage("assistant", "[Started capturing tab audio]");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      console.error("[startCapture] Error:", err);
+      appendMessage("assistant", `[ERROR] ${err?.message || err}`);
     }
   };
 
-  const stopListening = () => {
-    SpeechRecognition.stopListening();
+  // ---------- Stop Capture ----------
+  const stopCapture = () => {
+    if (!isCapturing) return;
+    try {
+      setIsCapturing(false);
+
+      if (recorderRef.current && recorderRef.current.state !== "inactive") {
+        try {
+          recorderRef.current.stop();
+        } catch (err) {
+          console.error("[stopCapture] Error stopping recorder:", err);
+        }
+      }
+      recorderRef.current = null;
+
+      if (audioOnlyStreamRef.current) {
+        audioOnlyStreamRef.current.getTracks().forEach((t) => t.stop());
+        audioOnlyStreamRef.current = null;
+      }
+      if (displayStreamRef.current) {
+        displayStreamRef.current.getTracks().forEach((t) => t.stop());
+        displayStreamRef.current = null;
+      }
+
+      appendMessage("assistant", "[Stopped capture]");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      console.error("[stopCapture] Error:", err);
+      appendMessage("assistant", `[ERROR] ${err?.message || err}`);
+    }
   };
 
-  if (!browserSupportsSpeechRecognition) {
-    return (
-      <div className="w-full">
-        <Card className="bg-card border-border flex items-center justify-center p-8">
-          <p className="text-muted-foreground">Browser doesn't support speech recognition.</p>
-        </Card>
-      </div>
-    );
-  }
+  // ---------- Upload + Get Answer ----------
+  const sendOnce = async (blob: Blob, userPrompt: string) => {
+    try {
+      setIsProcessing(true);
+      appendMessage("user", `🎤 Sent audio with prompt: "${userPrompt}"`);
+
+      const forcedType = /^audio\//.test(blob.type)
+        ? blob.type
+        : chosenMimeRef.current || "audio/webm";
+      const file = new File([blob], `session_${Date.now()}.webm`, {
+        type: forcedType,
+      });
+
+      const form = new FormData();
+      form.append("audio", file, file.name);
+      form.append("prompt", userPrompt || "");
+
+      const resp = await fetch("http://localhost:5000/api/ask", {
+        method: "POST",
+        body: form,
+      });
+
+      if (!resp.ok) {
+        const msg = await resp.text();
+        appendMessage("assistant", `[Server error] ${msg}`);
+        return;
+      }
+
+      const data = await resp.json();
+      const transcript = (data?.transcript || "").trim();
+      const answer = (data?.answer || "").trim();
+
+      if (transcript)
+        appendMessage("assistant", `📜 Transcript: ${transcript}`);
+      if (answer) appendMessage("assistant", `🤖 Answer: ${answer}`);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      console.error("[sendOnce] Network or server error:", err);
+      appendMessage("assistant", `[Network error] ${err?.message || err}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Cleanup on unload
+  useEffect(() => {
+    const onUnload = () => {
+      try {
+        stopCapture();
+      } catch (err) {
+        console.error("[useEffect] Error during unload cleanup:", err);
+      }
+    };
+    window.addEventListener("beforeunload", onUnload);
+    return () => window.removeEventListener("beforeunload", onUnload);
+  }, []);
 
   return (
     <div className="w-full">
@@ -82,9 +212,10 @@ const DescriptiveAI: React.FC = () => {
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center space-x-2">
             <MessageSquare className="h-5 w-5" />
-            <span>Descriptive AI Assistant</span>
+            <span>Descriptive AI Assistant (Tab Audio)</span>
           </CardTitle>
         </CardHeader>
+
         <CardContent className="space-y-4">
           {/* Chat Messages */}
           <ScrollArea className="h-80 pr-4">
@@ -92,22 +223,24 @@ const DescriptiveAI: React.FC = () => {
               {messages.length === 0 ? (
                 <div className="text-center text-muted-foreground py-8">
                   <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Click the microphone to start asking questions!</p>
+                  <p>Click start to capture tab audio and ask!</p>
                 </div>
               ) : (
                 messages.map((message) => (
                   <div
                     key={message.id}
-                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    className={`flex ${
+                      message.role === "user" ? "justify-end" : "justify-start"
+                    }`}
                   >
                     <div
                       className={`max-w-[80%] rounded-lg p-3 ${
-                        message.role === 'user'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground'
+                        message.role === "user"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
                       }`}
                     >
-                      <p className="text-sm leading-relaxed">{message.content}</p>
+                      <p className="text-sm mb-1">{message.content}</p>
                       <p className="text-xs opacity-70 mt-1">
                         {message.timestamp.toLocaleTimeString()}
                       </p>
@@ -128,15 +261,15 @@ const DescriptiveAI: React.FC = () => {
             </div>
           </ScrollArea>
 
-          {/* Voice Input Controls */}
+          {/* Controls */}
           <div className="flex items-center justify-center space-x-4 pt-4 border-t border-border">
             <Button
-              onClick={listening ? stopListening : startListening}
-              variant={listening ? "destructive" : "default"}
+              onClick={isCapturing ? stopCapture : startCapture}
+              variant={isCapturing ? "destructive" : "default"}
               size="lg"
               className="rounded-full h-12 w-12 p-0"
             >
-              {listening ? (
+              {isCapturing ? (
                 <MicOff className="h-6 w-6" />
               ) : (
                 <Mic className="h-6 w-6" />
@@ -144,13 +277,10 @@ const DescriptiveAI: React.FC = () => {
             </Button>
             <div className="text-center">
               <p className="text-sm font-medium">
-                {listening ? 'Listening...' : 'Click to speak'}
+                {isCapturing
+                  ? "Capturing tab audio..."
+                  : "Click to capture tab audio"}
               </p>
-              {transcript && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  "{transcript}"
-                </p>
-              )}
             </div>
           </div>
         </CardContent>

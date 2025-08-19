@@ -7,58 +7,54 @@ import { Upload, FileText } from 'lucide-react';
 const Resume: React.FC = () => {
   const [fileName, setFileName] = useState<string>('');
   const [fileContent, setFileContent] = useState<string>('');
-  const [description] = useState<string>(
-    `Professional Summary:
-    
-Experienced Software Engineer with 5+ years of expertise in full-stack development, specializing in React, Node.js, and cloud technologies. Proven track record of delivering scalable web applications and leading cross-functional teams.
+  const [streamedResponse, setStreamedResponse] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
 
-Key Achievements:
-• Led development of a customer portal that increased user engagement by 40%
-• Implemented microservices architecture reducing system downtime by 60%
-• Mentored 5 junior developers and established coding best practices
-• Optimized database queries resulting in 50% faster page load times
+ 
 
-Technical Expertise:
-• Frontend: React, TypeScript, Next.js, Tailwind CSS
-• Backend: Node.js, Python, Express.js, FastAPI
-• Databases: PostgreSQL, MongoDB, Redis
-• Cloud: AWS, Docker, Kubernetes
-• Tools: Git, Jenkins, Jira, Figma
-
-Experience:
-Senior Software Engineer | TechCorp Inc. | 2021 - Present
-• Architected and developed enterprise-level web applications
-• Collaborated with product managers to define technical requirements
-• Implemented CI/CD pipelines improving deployment efficiency by 70%
-
-Software Engineer | StartupXYZ | 2019 - 2021
-• Built responsive web applications using React and Node.js
-• Integrated third-party APIs and payment gateways
-• Participated in agile development processes and code reviews
-
-Education:
-Bachelor of Science in Computer Science
-University of Technology | 2015 - 2019
-
-Certifications:
-• AWS Certified Solutions Architect
-• Google Cloud Professional Developer
-• Certified Scrum Master (CSM)`
-  );
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      setFileName(file.name);
-      
-      // Read file content for display
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const content = e.target?.result as string;
-        setFileContent(`File uploaded: ${file.name}\n\nContent preview:\n${content.substring(0, 500)}...`);
-      };
-      reader.readAsText(file);
-    }
+    if (!file) return;
+
+    setFileName(file.name);
+    setStreamedResponse('');
+    setLoading(true);
+
+    // Read file content as text
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const content = e.target?.result as string;
+      setFileContent(`File uploaded: ${file.name}\n\nContent preview:\n${content.substring(0, 500)}...`);
+
+      try {
+        // Call backend API with resume text
+        const response = await fetch('http://localhost:5000/api/process_resume', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resumeText: content })
+        });
+
+        if (!response.body) throw new Error('No response body from API');
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let done = false;
+
+        while (!done) {
+          const { value, done: doneReading } = await reader.read();
+          done = doneReading;
+          if (value) {
+            setStreamedResponse((prev) => prev + decoder.decode(value));
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        setStreamedResponse('Error processing resume.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -75,7 +71,7 @@ Certifications:
               Upload
               <input
                 type="file"
-                accept=".pdf,.docx,.doc"
+                accept=".pdf,.docx,.doc,.txt"
                 onChange={handleFileChange}
                 className="absolute inset-0 opacity-0 cursor-pointer"
               />
@@ -90,11 +86,15 @@ Certifications:
         <CardContent>
           <ScrollArea className="h-96 pr-4">
             <div className="space-y-4 text-sm leading-relaxed">
-              {(fileContent || description).split('\n').map((line, index) => (
-                <p key={index} className={line.trim() === '' ? 'h-2' : ''}>
-                  {line}
-                </p>
-              ))}
+              {loading && <p className="text-blue-500">Processing resume...</p>}
+              {streamedResponse && (
+                <>
+                  <p className="font-semibold">AI Summary:</p>
+                  {streamedResponse.split('\n').map((line, index) => (
+                    <p key={`response-${index}`} className={line.trim() === '' ? 'h-2' : ''}>{line}</p>
+                  ))}
+                </>
+              )}
             </div>
           </ScrollArea>
         </CardContent>
