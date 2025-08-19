@@ -1,8 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { User, Mail, Phone, MapPin, Calendar } from 'lucide-react';
+import {  Mail, Phone, MapPin, Calendar } from 'lucide-react';
 
 const Profile: React.FC = () => {
   return (
@@ -10,12 +9,7 @@ const Profile: React.FC = () => {
       <Card className="bg-card border-border">
         <CardHeader className="pb-4">
           <div className="flex items-center space-x-4">
-            {/* <Avatar className="h-16 w-16">
-              <AvatarImage src="https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=150&h=150&dpr=1" />
-              <AvatarFallback className="bg-primary text-primary-foreground">
-                <User className="h-8 w-8" />
-              </AvatarFallback>
-            </Avatar> */}
+            
             <div>
               <CardTitle className="text-xl">John Doe</CardTitle>
               <p className="text-sm text-muted-foreground">Software Engineer</p>

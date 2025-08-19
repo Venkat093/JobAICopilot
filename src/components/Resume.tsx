@@ -6,6 +6,7 @@ import { Upload, FileText } from 'lucide-react';
 
 const Resume: React.FC = () => {
   const [fileName, setFileName] = useState<string>('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [fileContent, setFileContent] = useState<string>('');
   const [streamedResponse, setStreamedResponse] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
