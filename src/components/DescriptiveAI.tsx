@@ -1,3 +1,4 @@
+// DescriptiveAI.tsx
 import React, { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ function pickMime() {
   ];
   for (const m of candidates) {
     try {
+      // Some browsers may throw; guard with try
       if (MediaRecorder.isTypeSupported(m)) return m;
     } catch (err) {
       console.error("[pickMime] Error checking mime type:", err);
@@ -65,17 +67,18 @@ const DescriptiveAI: React.FC = () => {
       const displayStream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
         audio: true,
+        // @ts-expect-error - experimental/Chromium-specific hints
         selfBrowserSurface: "exclude",
+        // @ts-expect-error - experimental/Chromium-specific hints
         systemAudio: "exclude",
       });
 
       const audioTracks = displayStream.getAudioTracks();
       if (!audioTracks.length)
-        throw new Error(
-          "No audio track. Make sure 'Share tab audio' is checked."
-        );
+        throw new Error("No audio track. Make sure 'Share tab audio' is checked.");
 
       const audioOnlyStream = new MediaStream(audioTracks);
+      // Stop video tracks immediately; we only need audio
       displayStream.getVideoTracks().forEach((t) => t.stop());
 
       displayStreamRef.current = displayStream;
@@ -83,9 +86,7 @@ const DescriptiveAI: React.FC = () => {
 
       const mime = pickMime() || "audio/webm;codecs=opus";
       chosenMimeRef.current = mime;
-      const opts = mime
-        ? { mimeType: mime, audioBitsPerSecond: 128000 }
-        : undefined;
+      const opts = mime ? { mimeType: mime, audioBitsPerSecond: 128000 } : undefined;
 
       const mr = new MediaRecorder(audioOnlyStream, opts);
       recorderRef.current = mr;
@@ -181,8 +182,7 @@ const DescriptiveAI: React.FC = () => {
       const transcript = (data?.transcript || "").trim();
       const answer = (data?.answer || "").trim();
 
-      if (transcript)
-        appendMessage("assistant", `📜 Transcript: ${transcript}`);
+      if (transcript) appendMessage("assistant", `📜 Transcript: ${transcript}`);
       if (answer) appendMessage("assistant", `🤖 Answer: ${answer}`);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
@@ -204,21 +204,23 @@ const DescriptiveAI: React.FC = () => {
     };
     window.addEventListener("beforeunload", onUnload);
     return () => window.removeEventListener("beforeunload", onUnload);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <div className="w-full">
-      <Card className="bg-card border-border">
-        <CardHeader className="pb-4">
+    // Fill the grid cell provided by parent
+    <div className="w-full h-full flex flex-col min-h-0">
+      <Card className="bg-card border-border flex-1 min-h-0">
+        <CardHeader className="pb-4 shrink-0">
           <CardTitle className="flex items-center space-x-2">
             <MessageSquare className="h-5 w-5" />
             <span>Descriptive AI Assistant (Tab Audio)</span>
           </CardTitle>
         </CardHeader>
 
-        <CardContent className="space-y-4">
+        <CardContent className="flex flex-col gap-4 min-h-0 h-full">
           {/* Chat Messages */}
-          <ScrollArea className="h-80 pr-4">
+          <ScrollArea className="flex-1 min-h-0 pr-4">
             <div className="space-y-4">
               {messages.length === 0 ? (
                 <div className="text-center text-muted-foreground py-8">
@@ -262,24 +264,21 @@ const DescriptiveAI: React.FC = () => {
           </ScrollArea>
 
           {/* Controls */}
-          <div className="flex items-center justify-center space-x-4 pt-4 border-t border-border">
+          <div className="flex items-center justify-center space-x-4 pt-4 border-t border-border shrink-0 ">
             <Button
               onClick={isCapturing ? stopCapture : startCapture}
               variant={isCapturing ? "destructive" : "default"}
               size="lg"
               className="rounded-full h-12 w-12 p-0"
+              aria-pressed={isCapturing}
+              aria-label={isCapturing ? "Stop capturing tab audio" : "Start capturing tab audio"}
+              title={isCapturing ? "Stop" : "Start"}
             >
-              {isCapturing ? (
-                <MicOff className="h-6 w-6" />
-              ) : (
-                <Mic className="h-6 w-6" />
-              )}
+              {isCapturing ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
             </Button>
             <div className="text-center">
               <p className="text-sm font-medium">
-                {isCapturing
-                  ? "Capturing tab audio..."
-                  : "Click to capture tab audio"}
+                {isCapturing ? "Capturing tab audio..." : "Click to capture tab audio"}
               </p>
             </div>
           </div>

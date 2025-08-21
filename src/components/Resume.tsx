@@ -84,8 +84,8 @@ const Resume: React.FC = () => {
             </p>
           )}
         </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-96 pr-4">
+        <CardContent className="overflow-hidden">
+          <ScrollArea className="h-80 pr-4  overflow-y-hidden">
             <div className="space-y-4 text-sm leading-relaxed">
               {loading && <p className="text-blue-500">Processing resume...</p>}
               {streamedResponse && (

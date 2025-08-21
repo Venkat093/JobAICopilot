@@ -7,7 +7,7 @@ const Profile: React.FC = () => {
   return (
     <div className="w-full">
       <Card className="bg-card border-border">
-        <CardHeader className="pb-4">
+        <CardHeader className="pb-1">
           <div className="flex items-center space-x-4">
             
             <div>
@@ -18,22 +18,22 @@ const Profile: React.FC = () => {
         </CardHeader>
         <CardContent className="space">
           <div className="flex items-center space-x-2 text-sm">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <Calendar className="h-2 w-4 text-muted-foreground" />
             <span>January 1, 1990</span>
           </div>
           <div className="flex items-center space-x-2 text-sm">
-            <MapPin className="h-4 w-4 text-muted-foreground" />
+            <MapPin className="h-2 w-4 text-muted-foreground" />
             <span>New York, USA</span>
           </div>
           <div className="flex items-center space-x-2 text-sm">
-            <Mail className="h-4 w-4 text-muted-foreground" />
+            <Mail className="h-2 w-4 text-muted-foreground" />
             <span>john.doe@example.com</span>
           </div>
           <div className="flex items-center space-x-2 text-sm">
-            <Phone className="h-4 w-4 text-muted-foreground" />
+            <Phone className="h-2 w-4 text-muted-foreground" />
             <span>+1 234 567 8900</span>
           </div>
-          <div className="pt-4">
+          <div className="pt-1">
             <h4 className="text-sm font-medium mb-2">Skills</h4>
             <div className="flex flex-wrap gap-2">
               <Badge variant="secondary">React</Badge>
